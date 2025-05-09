@@ -1,0 +1,12 @@
+{
+    "version": "1.0.0",
+    "requires": {
+        "cockpit": "137"
+    },
+
+    "tools": {
+        "index": {
+            "label": "POABOT"
+        }
+    }
+}

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="addon">
+  <id>org.cockpit_project.poabot</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <n>poabot</n>
+  <summary>poabot Management Tool for Cockpit</summary>
+  <description>
+    <p>
+      A Cockpit application for managing poabot.
+      
+      This application makes it easy to manage setting up, running, updating, and linking your poabot to your domain.
+    </p>
+  </description>
+  <extends>org.cockpit_project.cockpit</extends>
+  <launchable type="cockpit-manifest">poabot</launchable>
+  <url type="homepage">https://github.com/jangdokang/poabot-manager</url>
+  <url type="bugtracker">https://github.com/jangdokang/poabot-manager/issues</url>
+  <update_contact>jangdokang@naver.com</update_contact>
+  <developer id="org.jangdokang">
+    <n>jangdokang</n>
+  </developer>
+</component>
