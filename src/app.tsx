@@ -1022,7 +1022,7 @@ export const Application = () => {
             .then(output => {
                 // 결과를 줄 단위로 분리하여 버전 배열로 변환
                 const versions = output.trim().split('\n').filter(v => v.trim() !== '');
-                console.log("사용 가능한 버전:", versions);
+                // console.log("사용 가능한 버전:", versions);
                 
                 // 버전을 의미적 순서로 정렬 (최신 버전이 앞에 오도록)
                 versions.sort((a, b) => {
@@ -1105,9 +1105,35 @@ export const Application = () => {
                 return cockpit.spawn(['/bin/bash', '-c', tagCommand], { superuser: "try" });
             })
             .then(() => {
+                // 선택한 버전의 메이저.마이너 버전 추출 (예: 1.0.x, 1.1.x)
+                const versionPrefix = selectedVersion.split('.').slice(0, 2).join('.');
+                setUpdateMessage(`포아봇 ${selectedVersion} 버전 다운로드 완료. 이제 매니저를 업데이트합니다...`);
+                // poabot-manager 업데이트 명령어 구성
+                const updateManagerCommand = `
+                    cd /tmp && 
+                    MAJOR_MINOR="${versionPrefix}" && 
+                    # API를 사용하여 특정 메이저.마이너 버전에 해당하는 최신 릴리스 찾기
+                    RELEASES=$(curl -s "https://api.github.com/repos/jangdokang/poabot-manager/releases") && 
+                    # 해당 메이저.마이너 버전 패턴과 일치하는 가장 최신 태그 찾기
+                    LATEST_TAG=$(echo $RELEASES | grep -o '"tag_name": "[^"]*' | grep "$MAJOR_MINOR" | head -1 | cut -d'"' -f4) && 
+                    if [ -z "$LATEST_TAG" ]; then
+                        echo "해당 버전($MAJOR_MINOR.x)의 매니저를 찾을 수 없습니다. 최신 버전을 사용합니다." && 
+                        LATEST_TAG=$(echo $RELEASES | grep -o '"tag_name": "[^"]*' | head -1 | cut -d'"' -f4)
+                    fi && 
+                    echo "포아봇 매니저 버전: $LATEST_TAG 설치 시작" && 
+                    rm -rf poabot-manager-*.tar.xz cockpit-poabot && 
+                    curl -sSL "https://github.com/jangdokang/poabot-manager/releases/download/$LATEST_TAG/poabot-manager-\${LATEST_TAG#v}.tar.xz" -o "poabot-manager-\${LATEST_TAG#v}.tar.xz" && 
+                    tar -xf "poabot-manager-\${LATEST_TAG#v}.tar.xz" && 
+                    cd cockpit-poabot && make && make install
+                `;
+                
+                return cockpit.spawn(['/bin/bash', '-c', updateManagerCommand], { superuser: "try" });
+            })
+            .then((output) => {
+                console.log("매니저 업데이트 결과:", output);
                 // 업데이트 성공
                 setUpdateStatus('success');
-                setUpdateMessage(`${selectedVersion} 버전으로 업데이트 완료. 이제 (재)시작 버튼을 누르면 새 버전이 적용됩니다.`);
+                setUpdateMessage(`${selectedVersion} 버전으로 업데이트 완료. 포아봇 매니저도 업데이트 되었습니다. 이제 (재)시작 버튼을 누르면 새 버전이 적용됩니다.`);
                 
                 // 30초 후 메시지 초기화
                 setTimeout(() => {
