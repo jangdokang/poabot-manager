@@ -68,6 +68,8 @@ interface TestState {
   amount: string;
   exchange: string;
   marginMode: string;
+  subExchange: string;
+  kisNumber: string;
   amountError: string;
   leverage: string;
   leverageError: string;
@@ -80,6 +82,8 @@ interface TestState {
   setAmount: (amount: string) => void;
   setExchange: (exchange: string) => void;
   setMarginMode: (marginMode: string) => void;
+  setSubExchange: (subExchange: string) => void;
+  setKisNumber: (kisNumber: string) => void;
   setLeverage: (leverage: string) => void;
   resetForm: () => void;
   submitTest: () => Promise<void>;
@@ -95,6 +99,8 @@ const useTestStore = create<TestState>()(
       amount: '',
       exchange: 'UPBIT', // 기본값 'UPBIT'
       marginMode: 'isolated', // 기본값 'isolated'
+      subExchange: 'KRX',
+      kisNumber: '1', // 기본값 '1'
       amountError: '',
       leverage: '',
       leverageError: '',
@@ -116,6 +122,12 @@ const useTestStore = create<TestState>()(
       
       // 액션: 마진모드 설정
       setMarginMode: (marginMode: string) => set({ marginMode }),
+
+      // 액션: 서브 거래소 설정
+      setSubExchange: (subExchange: string) => set({ subExchange }),
+      
+      // 액션: KIS 계좌번호 설정
+      setKisNumber: (kisNumber: string) => set({ kisNumber }),
       
       // 액션: 레버리지 설정
       setLeverage: (leverage: string) => {
@@ -165,6 +177,8 @@ const useTestStore = create<TestState>()(
         amount: '',
         exchange: 'UPBIT',
         marginMode: 'isolated',
+        subExchange: 'KRX',
+        kisNumber: '1',
         amountError: '',
         leverage: '',
         leverageError: '',
@@ -209,6 +223,10 @@ const useTestStore = create<TestState>()(
             amount: parseFloat(state.amount),
             exchange: state.exchange,
             ...(state.exchange === 'BITGET' || state.exchange === 'OKX' ? { margin_mode: state.marginMode } : {}),
+            ...(state.exchange === 'KIS' ? { 
+              subExchange: state.subExchange,
+              kis_number: state.kisNumber 
+            } : {}), 
             ...(state.exchange !== 'UPBIT' && state.exchange !== 'BITHUMB' && state.exchange !== 'KIS' && state.leverage ? { leverage: parseFloat(state.leverage) } : {})
           });
           
@@ -383,6 +401,8 @@ export const Application = () => {
     const testAmount = useTestStore((state) => state.amount);
     const testExchange = useTestStore((state) => state.exchange);
     const testMarginMode = useTestStore((state) => state.marginMode);
+    const testSubExchange = useTestStore((state) => state.subExchange);
+    const testKisNumber = useTestStore((state) => state.kisNumber);
     const testAmountError = useTestStore((state) => state.amountError);
     const testLeverage = useTestStore((state) => state.leverage);
     const testLeverageError = useTestStore((state) => state.leverageError);
@@ -395,6 +415,8 @@ export const Application = () => {
     const setTestAmount = useTestStore((state) => state.setAmount);
     const setTestExchange = useTestStore((state) => state.setExchange);
     const setTestMarginMode = useTestStore((state) => state.setMarginMode);
+    const setTestSubExchange = useTestStore((state) => state.setSubExchange);
+    const setTestKisNumber = useTestStore((state) => state.setKisNumber);
     const setTestLeverage = useTestStore((state) => state.setLeverage);
     const submitTest = useTestStore((state) => state.submitTest);
     const resetTestForm = useTestStore((state) => state.resetForm);
@@ -428,6 +450,10 @@ export const Application = () => {
     const [isExchangeSelectOpen, setIsExchangeSelectOpen] = useState<boolean>(false);
     // 마진모드 선택 상태
     const [isMarginModeSelectOpen, setIsMarginModeSelectOpen] = useState<boolean>(false);
+    // 서브 거래소 선택 상태
+    const [isSubExchangeSelectOpen, setIsSubExchangeSelectOpen] = useState<boolean>(false);
+    // KIS 계좌번호 선택 상태
+    const [isKisNumberSelectOpen, setIsKisNumberSelectOpen] = useState<boolean>(false);
     
     // 모달 상태 관리
     const [isRestartModalOpen, setIsRestartModalOpen] = useState<boolean>(false);
@@ -813,7 +839,7 @@ export const Application = () => {
         cockpit.spawn(['podman', 'stop', '-i', 'poabot'], { superuser: "try" })
             .then(() => {
                 console.log("기존 포아봇 컨테이너가 정지되었습니다.");
-                const command = "mkdir -p $HOME/logs && chmod -R 777 $HOME/logs && podman run --replace -d -p 8000:8000 -v $HOME/logs:/app/logs --env-file $HOME/poabot.env --restart unless-stopped --name poabot poabot"
+                const command = "mkdir -p $HOME/logs && chmod -R 777 $HOME/logs && podman run --replace -d -p 8000:8000 -v $HOME/logs:/app/logs -v /etc/localtime:/etc/localtime:ro --env-file $HOME/poabot.env --restart unless-stopped --name poabot poabot"
 
                 return cockpit.spawn(['/bin/bash', '-c', command], { superuser: "try" })
                 .then(output => {
@@ -1725,57 +1751,87 @@ export const Application = () => {
         <Card>
             <CardTitle>한국투자증권(KIS) API 설정</CardTitle>
             <CardBody>
-                <ExchangeItem 
-                    href="https://truefriend.com" 
-                    name="한국투자증권" 
-                    types="한국주식, 미국주식" 
-                    buttonText="가입하기" 
+                <ExchangeItem
+                    href="https://truefriend.com"
+                    name="한국투자증권"
+                    types="한국주식, 미국주식"
+                    buttonText="가입하기"
                 />
                 <hr style={{ margin: '1rem 0' }} />
-                <Form>
-                    <FormGroup label="API 키">
-                        <TextInput 
-                            value={envConfig?.KIS1_KEY || ''} 
-                            type="text" 
-                            aria-label="KIS1 API 키" 
-                            onChange={(_, value) => handleInputChange('KIS1_KEY', value)}
-                        />
-                    </FormGroup>
-                    <FormGroup label="시크릿 키">
-                        <div style={{ position: 'relative' }}>
-                            <TextInput 
-                                value={envConfig?.KIS1_SECRET || ''} 
-                                type={showKis1Secret ? "text" : "password"} 
-                                aria-label="KIS1 시크릿 키" 
-                                onChange={(_, value) => handleInputChange('KIS1_SECRET', value)}
+                {/* KIS 계정 탭 */}
+                <Tabs activeKey={activeKisTabKey} onSelect={handleKisTabClick} variant="secondary" style={{ marginTop: '1rem' }}>
+                    {[1, 2, 3, 4].map(num => (
+                        <Tab key={num} eventKey={num} title={<TabTitleText>계좌{num}</TabTitleText>} />
+                    ))}
+                </Tabs>
+                <div style={{ marginTop: '1rem' }}>
+                    <Form>
+                        <FormGroup label={`API 키 (계좌${activeKisTabKey})`}>
+                            <TextInput
+                                value={envConfig?.[`KIS${activeKisTabKey}_KEY`] || ''}
+                                type="text"
+                                aria-label={`KIS${activeKisTabKey} API 키`}
+                                onChange={(_, value) => handleInputChange(`KIS${activeKisTabKey}_KEY`, value)}
                             />
-                            <Button 
-                                variant="plain" 
-                                aria-label={showKis1Secret ? "시크릿 키 숨기기" : "시크릿 키 보기"} 
-                                onClick={() => setShowKis1Secret(!showKis1Secret)}
-                                style={{ position: 'absolute', right: '0', top: '0' }}
-                            >
-                                {showKis1Secret ? <EyeSlashIcon /> : <EyeIcon />}
-                            </Button>
-                        </div>
-                    </FormGroup>
-                    <FormGroup label="계좌번호">
-                        <TextInput 
-                            value={envConfig?.KIS1_ACCOUNT_NUMBER || ''} 
-                            type="text" 
-                            aria-label="KIS1 계좌번호" 
-                            onChange={(_, value) => handleInputChange('KIS1_ACCOUNT_NUMBER', value)}
-                        />
-                    </FormGroup>
-                    <FormGroup label="계좌코드">
-                        <TextInput 
-                            value={envConfig?.KIS1_ACCOUNT_CODE || ''} 
-                            type="text" 
-                            aria-label="KIS1 계좌코드" 
-                            onChange={(_, value) => handleInputChange('KIS1_ACCOUNT_CODE', value)}
-                        />
-                    </FormGroup>
-                </Form>
+                        </FormGroup>
+                        <FormGroup label={`시크릿 키 (계좌${activeKisTabKey})`}>
+                            <div style={{ position: 'relative' }}>
+                                <TextInput
+                                    value={envConfig?.[`KIS${activeKisTabKey}_SECRET`] || ''}
+                                    type={
+                                        (activeKisTabKey === 1 && showKis1Secret) ||
+                                        (activeKisTabKey === 2 && showKis2Secret) ||
+                                        (activeKisTabKey === 3 && showKis3Secret) ||
+                                        (activeKisTabKey === 4 && showKis4Secret)
+                                            ? "text"
+                                            : "password"
+                                    }
+                                    aria-label={`KIS${activeKisTabKey} 시크릿 키`}
+                                    onChange={(_, value) => handleInputChange(`KIS${activeKisTabKey}_SECRET`, value)}
+                                />
+                                <Button
+                                    variant="plain"
+                                    aria-label={
+                                        (activeKisTabKey === 1 && showKis1Secret) ||
+                                        (activeKisTabKey === 2 && showKis2Secret) ||
+                                        (activeKisTabKey === 3 && showKis3Secret) ||
+                                        (activeKisTabKey === 4 && showKis4Secret)
+                                            ? "시크릿 키 숨기기"
+                                            : "시크릿 키 보기"
+                                    }
+                                    onClick={() => {
+                                        if (activeKisTabKey === 1) setShowKis1Secret(!showKis1Secret);
+                                        if (activeKisTabKey === 2) setShowKis2Secret(!showKis2Secret);
+                                        if (activeKisTabKey === 3) setShowKis3Secret(!showKis3Secret);
+                                        if (activeKisTabKey === 4) setShowKis4Secret(!showKis4Secret);
+                                    }}
+                                    style={{ position: 'absolute', right: '0', top: '0' }}
+                                >
+                                    {(activeKisTabKey === 1 && showKis1Secret) ||
+                                     (activeKisTabKey === 2 && showKis2Secret) ||
+                                     (activeKisTabKey === 3 && showKis3Secret) ||
+                                     (activeKisTabKey === 4 && showKis4Secret) ? <EyeSlashIcon /> : <EyeIcon />}
+                                </Button>
+                            </div>
+                        </FormGroup>
+                        <FormGroup label={`계좌번호 (계좌${activeKisTabKey})`}>
+                            <TextInput
+                                value={envConfig?.[`KIS${activeKisTabKey}_ACCOUNT_NUMBER`] || ''}
+                                type="text"
+                                aria-label={`KIS${activeKisTabKey} 계좌번호`}
+                                onChange={(_, value) => handleInputChange(`KIS${activeKisTabKey}_ACCOUNT_NUMBER`, value)}
+                            />
+                        </FormGroup>
+                        <FormGroup label={`계좌코드 (계좌${activeKisTabKey})`}>
+                            <TextInput
+                                value={envConfig?.[`KIS${activeKisTabKey}_ACCOUNT_CODE`] || ''}
+                                type="text"
+                                aria-label={`KIS${activeKisTabKey} 계좌코드`}
+                                onChange={(_, value) => handleInputChange(`KIS${activeKisTabKey}_ACCOUNT_CODE`, value)}
+                            />
+                        </FormGroup>
+                    </Form>
+                </div>
             </CardBody>
         </Card>
     );
@@ -1890,6 +1946,83 @@ export const Application = () => {
                                 </div>
                             </FormHelperText>
                         </FormGroup>
+                    )}
+                    
+                    {/* 서브 거래소 선택 (KIS 선택 시에만 표시) */}
+                    {testExchange === 'KIS' && (
+                        <>
+                            <FormGroup label="증시">
+                                <Select
+                                    id="sub-exchange-select"
+                                    isOpen={isSubExchangeSelectOpen}
+                                    onOpenChange={(isOpen) => setIsSubExchangeSelectOpen(isOpen)}
+                                    toggle={(toggleRef) => (
+                                        <MenuToggle
+                                            ref={toggleRef}
+                                            onClick={() => setIsSubExchangeSelectOpen(!isSubExchangeSelectOpen)}
+                                            isExpanded={isSubExchangeSelectOpen}
+                                        >
+                                            {testSubExchange}
+                                        </MenuToggle>
+                                    )}
+                                    onSelect={(_, value) => {
+                                        if (typeof value === 'string') {
+                                            setTestSubExchange(value);
+                                        }
+                                        setIsSubExchangeSelectOpen(false);
+                                    }}
+                                    selected={testSubExchange}
+                                >
+                                    <SelectList>
+                                        <SelectOption value="KRX">KRX (한국거래소)</SelectOption>
+                                        <SelectOption value="NASDAQ">NASDAQ (나스닥)</SelectOption>
+                                        <SelectOption value="NYSE">NYSE (뉴욕거래소)</SelectOption>
+                                        <SelectOption value="AMEX">AMEX (아멕스)</SelectOption>
+                                    </SelectList>
+                                </Select>
+                                <FormHelperText>
+                                    <div style={{ fontSize: '14px', marginTop: '4px' }}>
+                                        거래할 증시를 선택하세요
+                                    </div>
+                                </FormHelperText>
+                            </FormGroup>
+                            
+                            <FormGroup label="계좌번호">
+                                <Select
+                                    id="kis-number-select"
+                                    isOpen={isKisNumberSelectOpen}
+                                    onOpenChange={(isOpen) => setIsKisNumberSelectOpen(isOpen)}
+                                    toggle={(toggleRef) => (
+                                        <MenuToggle
+                                            ref={toggleRef}
+                                            onClick={() => setIsKisNumberSelectOpen(!isKisNumberSelectOpen)}
+                                            isExpanded={isKisNumberSelectOpen}
+                                        >
+                                            {`계좌 ${testKisNumber}`}
+                                        </MenuToggle>
+                                    )}
+                                    onSelect={(_, value) => {
+                                        if (typeof value === 'string') {
+                                            setTestKisNumber(value);
+                                        }
+                                        setIsKisNumberSelectOpen(false);
+                                    }}
+                                    selected={testKisNumber}
+                                >
+                                    <SelectList>
+                                        <SelectOption value="1">계좌 1</SelectOption>
+                                        <SelectOption value="2">계좌 2</SelectOption>
+                                        <SelectOption value="3">계좌 3</SelectOption>
+                                        <SelectOption value="4">계좌 4</SelectOption>
+                                    </SelectList>
+                                </Select>
+                                <FormHelperText>
+                                    <div style={{ fontSize: '14px', marginTop: '4px' }}>
+                                        사용할 KIS 계좌번호를 선택하세요
+                                    </div>
+                                </FormHelperText>
+                            </FormGroup>
+                        </>
                     )}
                     
                     <FormGroup label="심볼">

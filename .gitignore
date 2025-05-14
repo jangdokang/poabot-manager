@@ -29,6 +29,7 @@ cockpit-poabot.spec
 /Test*.png
 /*.whl
 /bots
+/*.tar.xz
 /cockpit-*.tar.xz
 /cockpit-navigator.spec
 /dist/
