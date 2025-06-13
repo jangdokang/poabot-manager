@@ -3,7 +3,10 @@
 #  - general patterns (match in all directories)
 #  - patterns to match files at the toplevel
 #  - patterns to match files in subdirs
+poabot-manager.spec
 cockpit-poabot.spec
+*.md
+!README.md
 
 # general patterns
 *.pyc

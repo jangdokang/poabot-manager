@@ -1,4 +1,4 @@
-Name: cockpit-poabot
+Name: poabot-manager
 Version: %{VERSION}
 Release: 1%{?dist}
 Summary: Poabot Management Tool for Cockpit

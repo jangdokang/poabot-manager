@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert } from "@patternfly/react-core/dist/esm/components/Alert/index.js";
 import { Card, CardBody, CardTitle, CardFooter } from "@patternfly/react-core/dist/esm/components/Card/index.js";
 import { Form, FormGroup, FormHelperText } from "@patternfly/react-core/dist/esm/components/Form/index.js";
+import { Radio } from "@patternfly/react-core/dist/esm/components/Radio/index.js";
 import { TextInput } from "@patternfly/react-core/dist/esm/components/TextInput/index.js";
 import { Button } from "@patternfly/react-core/dist/esm/components/Button/index.js";
 import { Tabs, Tab, TabTitleText } from "@patternfly/react-core/dist/esm/components/Tabs/index.js";
@@ -73,6 +74,8 @@ interface TestState {
   amountError: string;
   leverage: string;
   leverageError: string;
+  percent: string;
+  percentError: string;
   isSubmitting: boolean;
   submitStatus: 'idle' | 'loading' | 'success' | 'error';
   submitMessage: string;
@@ -85,6 +88,7 @@ interface TestState {
   setSubExchange: (subExchange: string) => void;
   setKisNumber: (kisNumber: string) => void;
   setLeverage: (leverage: string) => void;
+  setPercent: (percent: string) => void;
   resetForm: () => void;
   submitTest: () => Promise<void>;
 }
@@ -104,6 +108,8 @@ const useTestStore = create<TestState>()(
       amountError: '',
       leverage: '',
       leverageError: '',
+      percent: '',
+      percentError: '',
       isSubmitting: false,
       submitStatus: 'idle',
       submitMessage: '',
@@ -150,6 +156,25 @@ const useTestStore = create<TestState>()(
         set({ leverage: trimmedLeverage, leverageError: error });
       },
       
+      // 액션: 퍼센트 설정 및 유효성 검사
+      setPercent: (percent: string) => {
+        let error = '';
+        const trimmedPercent = percent.trim();
+        
+        if (trimmedPercent === '') {
+          error = '';
+        } else {
+          const numValue = parseFloat(trimmedPercent);
+          if (isNaN(numValue)) {
+            error = '유효한 숫자를 입력하세요';
+          } else if (numValue < 0) {
+            error = '0 이상의 값을 입력하세요';
+          }
+        }
+        
+        set({ percent: trimmedPercent, percentError: error });
+      },
+      
       // 액션: 수량 설정 및 유효성 검사
       setAmount: (amount: string) => {
         let error = '';
@@ -182,6 +207,8 @@ const useTestStore = create<TestState>()(
         amountError: '',
         leverage: '',
         leverageError: '',
+        percent: '',
+        percentError: '',
         submitStatus: 'idle',
         submitMessage: ''
       }),
@@ -201,13 +228,18 @@ const useTestStore = create<TestState>()(
           return;
         }
         
-        if (!state.amount) {
-          set({ submitStatus: 'error', submitMessage: '수량을 입력하세요' });
+        if (!state.amount && !state.percent) {
+          set({ submitStatus: 'error', submitMessage: '수량 또는 퍼센트를 입력하세요' });
           return;
         }
         
-        if (state.amountError) {
+        if (state.amount && state.amountError) {
           set({ submitStatus: 'error', submitMessage: state.amountError });
+          return;
+        }
+        
+        if (state.percent && state.percentError) {
+          set({ submitStatus: 'error', submitMessage: state.percentError });
           return;
         }
         
@@ -220,7 +252,8 @@ const useTestStore = create<TestState>()(
             password: state.password,
             symbol: state.symbol,
             signal: state.signal,
-            amount: parseFloat(state.amount),
+            ...(state.amount ? { amount: parseFloat(state.amount) } : {}),
+            ...(state.percent ? { percent: state.percent } : {}),
             exchange: state.exchange,
             ...(state.exchange === 'BITGET' || state.exchange === 'OKX' ? { margin_mode: state.marginMode } : {}),
             ...(state.exchange === 'KIS' ? { 
@@ -418,6 +451,9 @@ export const Application = () => {
     const setTestSubExchange = useTestStore((state) => state.setSubExchange);
     const setTestKisNumber = useTestStore((state) => state.setKisNumber);
     const setTestLeverage = useTestStore((state) => state.setLeverage);
+    const testPercent = useTestStore((state) => state.percent);
+    const testPercentError = useTestStore((state) => state.percentError);
+    const setTestPercent = useTestStore((state) => state.setPercent);
     const submitTest = useTestStore((state) => state.submitTest);
     const resetTestForm = useTestStore((state) => state.resetForm);
 
@@ -454,6 +490,9 @@ export const Application = () => {
     const [isSubExchangeSelectOpen, setIsSubExchangeSelectOpen] = useState<boolean>(false);
     // KIS 계좌번호 선택 상태
     const [isKisNumberSelectOpen, setIsKisNumberSelectOpen] = useState<boolean>(false);
+    
+    // 거래 크기 입력 방식 선택 상태 (수량 또는 퍼센트)
+    const [amountType, setAmountType] = useState<'quantity' | 'percent'>('quantity');
     
     // 모달 상태 관리
     const [isRestartModalOpen, setIsRestartModalOpen] = useState<boolean>(false);
@@ -2119,29 +2158,76 @@ export const Application = () => {
                         </FormGroup>
                     )}
                     
-                    <FormGroup label="수량">
-                        <TextInput 
-                            value={testAmount} 
-                            type="text" 
-                            aria-label="수량" 
-                            placeholder="0보다 큰 숫자를 입력하세요" 
-                            onChange={(_, value) => setTestAmount(value)}
-                            validated={testAmountError ? "error" : "default"}
+                    <FormGroup label="거래 수량 설정">
+                        <Radio 
+                            id="amount-type-quantity"
+                            name="amount-type"
+                            label="수량으로 입력"
+                            isChecked={amountType === 'quantity'}
+                            onChange={() => {
+                                setAmountType('quantity');
+                                setTestPercent(''); // 퍼센트 값 초기화
+                            }}
                         />
-                        <FormHelperText>
-                            {testAmountError ? (
-                                <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
-                                    <ExclamationCircleIcon /> {testAmountError}
-                                </div>
-                            ) : (
-                                <div style={{ fontSize: '14px', marginTop: '4px' }}>
-                                    거래 수량을 입력하세요 (소수점 가능)
-                                </div>
-                            )}
-                        </FormHelperText>
+                        <Radio 
+                            id="amount-type-percent"
+                            name="amount-type"
+                            label="퍼센트로 입력"
+                            isChecked={amountType === 'percent'}
+                            onChange={() => {
+                                setAmountType('percent');
+                                setTestAmount(''); // 수량 값 초기화
+                            }}
+                        />
                     </FormGroup>
-                    
-                    
+
+                    {amountType === 'quantity' && (
+                        <FormGroup label="수량">
+                            <TextInput 
+                                value={testAmount} 
+                                type="text" 
+                                aria-label="수량" 
+                                placeholder="0보다 큰 숫자를 입력하세요" 
+                                onChange={(_, value) => setTestAmount(value)}
+                                validated={testAmountError ? "error" : "default"}
+                            />
+                            <FormHelperText>
+                                {testAmountError ? (
+                                    <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                                        <ExclamationCircleIcon /> {testAmountError}
+                                    </div>
+                                ) : (
+                                    <div style={{ fontSize: '14px', marginTop: '4px' }}>
+                                        거래 수량을 입력하세요 (소수점 가능)
+                                    </div>
+                                )}
+                            </FormHelperText>
+                        </FormGroup>
+                    )}
+
+                    {amountType === 'percent' && (
+                        <FormGroup label="퍼센트">
+                            <TextInput 
+                                value={testPercent} 
+                                type="text" 
+                                aria-label="퍼센트" 
+                                placeholder="숫자만 입력하세요" 
+                                onChange={(_, value) => setTestPercent(value)}
+                                validated={testPercentError ? "error" : "default"}
+                            />
+                            <FormHelperText>
+                                {testPercentError ? (
+                                    <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                                        <ExclamationCircleIcon /> {testPercentError}
+                                    </div>
+                                ) : (
+                                    <div style={{ fontSize: '14px', marginTop: '4px' }}>
+                                        잔고의 퍼센트를 입력하세요
+                                    </div>
+                                )}
+                            </FormHelperText>
+                        </FormGroup>
+                    )}
                     
                     <FormGroup>
                         <Flex>
@@ -2149,7 +2235,7 @@ export const Application = () => {
                                 <Button 
                                     variant="primary" 
                                     onClick={submitTest}
-                                    isDisabled={isSubmitting || !!testAmountError || !!testLeverageError || !testPassword || !testSymbol || !testAmount}
+                                    isDisabled={isSubmitting || !!testAmountError || !!testLeverageError || !!testPercentError || !testPassword || !testSymbol || (!testAmount && !testPercent)}
                                 >
                                     {isSubmitting ? (
                                         <>

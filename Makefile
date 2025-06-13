@@ -1,7 +1,7 @@
 # extract name from package.json
 PACKAGE_NAME := $(shell awk '/"name":/ {gsub(/[",]/, "", $$2); print $$2}' package.json)
-RPM_NAME := cockpit-$(PACKAGE_NAME)
-VERSION := $(shell T=$$(git describe 2>/dev/null) || T=1; echo $$T | tr '-' '.')
+RPM_NAME := poabot-manager
+VERSION := $(shell T=$$(git describe --tags --abbrev=0 2>/dev/null) || T=1; echo $$T | tr '-' '.')
 ifeq ($(TEST_OS),)
 TEST_OS = centos-9-stream
 endif
@@ -125,7 +125,7 @@ $(TARFILE): $(DIST_TEST) $(SPEC)
 	if type appstream-util >/dev/null 2>&1; then appstream-util validate-relax --nonet *.metainfo.xml; fi
 	tar --xz $(TAR_ARGS) -cf $(TARFILE) --transform 's,^,$(RPM_NAME)/,' \
 		--exclude packaging/$(SPEC).in --exclude node_modules \
-		$$(git ls-files) $(COCKPIT_REPO_FILES) $(NODE_MODULES_TEST) $(SPEC) dist/
+		$$(git ls-files | sed -e 's/packaging\/cockpit-poabot.spec.in/packaging\/poabot-manager.spec.in/' -e 's/packaging\/poabot.spec.in/packaging\/poabot-manager.spec.in/' -e 's/^poabot.spec$$/poabot-manager.spec/') $(COCKPIT_REPO_FILES) $(NODE_MODULES_TEST) $(SPEC) dist/
 
 $(NODE_CACHE): $(NODE_MODULES_TEST)
 	tar --xz $(TAR_ARGS) -cf $@ node_modules
