@@ -1186,10 +1186,10 @@ export const Application = () => {
                         LATEST_TAG=$(echo $RELEASES | grep -o '"tag_name": "[^"]*' | head -1 | cut -d'"' -f4)
                     fi && 
                     echo "포아봇 매니저 버전: $LATEST_TAG 설치 시작" && 
-                    rm -rf poabot-manager-*.tar.xz cockpit-poabot && 
+                    rm -rf poabot-manager-*.tar.xz cockpit-poabot poabot-manager && 
                     curl -sSL "https://github.com/jangdokang/poabot-manager/releases/download/$LATEST_TAG/poabot-manager-\${LATEST_TAG#v}.tar.xz" -o "poabot-manager-\${LATEST_TAG#v}.tar.xz" && 
                     tar -xf "poabot-manager-\${LATEST_TAG#v}.tar.xz" && 
-                    cd cockpit-poabot && make && make install
+                    (cd cockpit-poabot || cd poabot-manager) && make && make install
                 `;
                 
                 return cockpit.spawn(['/bin/bash', '-c', updateManagerCommand], { superuser: "try" });

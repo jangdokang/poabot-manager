@@ -5,6 +5,8 @@
 #  - patterns to match files in subdirs
 poabot-manager.spec
 cockpit-poabot.spec
+cockpit-poabot
+poabot-manager
 *.md
 !README.md
 

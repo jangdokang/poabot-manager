@@ -1,6 +1,6 @@
 # extract name from package.json
 PACKAGE_NAME := $(shell awk '/"name":/ {gsub(/[",]/, "", $$2); print $$2}' package.json)
-RPM_NAME := poabot-manager
+RPM_NAME := cockpit-poabot
 VERSION := $(shell T=$$(git describe --tags --abbrev=0 2>/dev/null) || T=1; echo $$T | tr '-' '.')
 ifeq ($(TEST_OS),)
 TEST_OS = centos-9-stream
