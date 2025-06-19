@@ -1189,7 +1189,9 @@ export const Application = () => {
                     rm -rf poabot-manager-*.tar.xz cockpit-poabot poabot-manager && 
                     curl -sSL "https://github.com/jangdokang/poabot-manager/releases/download/$LATEST_TAG/poabot-manager-\${LATEST_TAG#v}.tar.xz" -o "poabot-manager-\${LATEST_TAG#v}.tar.xz" && 
                     tar -xf "poabot-manager-\${LATEST_TAG#v}.tar.xz" && 
-                    (cd cockpit-poabot || cd poabot-manager) && make && make install
+                    ls -la && 
+                    if [ -d cockpit-poabot ]; then cd cockpit-poabot; elif [ -d poabot-manager ]; then cd poabot-manager; else echo "Directory not found"; exit 1; fi && 
+                    if [ -f Makefile ]; then make && make install; else echo "Makefile not found - skipping make install"; fi
                 `;
                 
                 return cockpit.spawn(['/bin/bash', '-c', updateManagerCommand], { superuser: "try" });
