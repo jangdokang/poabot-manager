@@ -1160,10 +1160,63 @@ export const Application = () => {
         setUpdateStatus('updating');
         setUpdateMessage(`${selectedVersion} 버전으로 업데이트 중...`);
         
-        const pullCommand = `podman pull jangdokang/poabot:${selectedVersion}`;
+        // 먼저 실행 중인 컨테이너 확인 및 사용 중인 이미지 ID 가져오기
+        const getRunningImagesCommand = `podman ps --format "{{.Image}}" | grep "jangdokang/poabot" | sort -u`;
         
-        // pull 명령어 실행
-        cockpit.spawn(['/bin/bash', '-c', pullCommand], { superuser: "try" })
+        cockpit.spawn(['/bin/bash', '-c', getRunningImagesCommand], { superuser: "try" })
+            .then(runningImages => {
+                const runningImagesList = runningImages.trim().split('\n').filter(img => img);
+                console.log('실행 중인 이미지들:', runningImagesList);
+                
+                // 기존 이미지들 삭제 (실행 중이 아니고, 다운로드할 버전이 아닌 것들만)
+                const cleanupCommand = `
+                    # 모든 poabot 이미지 목록 가져오기
+                    IMAGES=$(podman images --format "{{.Repository}}:{{.Tag}}" | grep "jangdokang/poabot" | grep -v "localhost/jangdokang/poabot")
+                    
+                    # 실행 중인 이미지 목록
+                    RUNNING_IMAGES="${runningImagesList.join(' ')}"
+                    
+                    # 삭제할 이미지 필터링
+                    for IMAGE in $IMAGES; do
+                        # 다운로드할 버전이 아니고, 실행 중이지 않은 이미지만 삭제
+                        if [[ "$IMAGE" != "jangdokang/poabot:${selectedVersion}" ]] && [[ "$IMAGE" != "jangdokang/poabot:latest" ]]; then
+                            IS_RUNNING=false
+                            for RUNNING in $RUNNING_IMAGES; do
+                                if [[ "$IMAGE" == "$RUNNING" ]]; then
+                                    IS_RUNNING=true
+                                    break
+                                fi
+                            done
+                            
+                            if [[ "$IS_RUNNING" == "false" ]]; then
+                                echo "삭제 중: $IMAGE"
+                                podman rmi "$IMAGE" 2>/dev/null || echo "이미지 $IMAGE 삭제 실패 (사용 중일 수 있음)"
+                            else
+                                echo "건너뜀: $IMAGE (실행 중)"
+                            fi
+                        fi
+                    done
+                    
+                    # localhost 태그된 이미지도 정리
+                    podman images --format "{{.Repository}}:{{.Tag}}" | grep "localhost/jangdokang/poabot" | while read IMG; do
+                        podman rmi "$IMG" 2>/dev/null || echo "localhost 이미지 $IMG 삭제 실패"
+                    done
+                    
+                    # dangling images (태그가 <none>인 이미지) 정리
+                    echo "Dangling 이미지 정리 중..."
+                    podman image prune -f 2>/dev/null || echo "Dangling 이미지 정리 실패"
+                `;
+                
+                return cockpit.spawn(['/bin/bash', '-c', cleanupCommand], { superuser: "try" });
+            })
+            .then(cleanupOutput => {
+                console.log('이미지 정리 결과:', cleanupOutput);
+                setUpdateMessage(`기존 이미지 정리 완료. ${selectedVersion} 버전 다운로드 중...`);
+                
+                // 새 버전 pull
+                const pullCommand = `podman pull jangdokang/poabot:${selectedVersion}`;
+                return cockpit.spawn(['/bin/bash', '-c', pullCommand], { superuser: "try" });
+            })
             .then(() => {
                 // pull 성공 후 tag 지정
                 const tagCommand = `podman tag jangdokang/poabot:${selectedVersion} jangdokang/poabot:latest`;
